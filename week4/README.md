@@ -83,10 +83,9 @@ Decision Point (Choose Tool)
    ↓
 Context & Search Results
 
-```
-
    ↓
 RunnableWithMessageHistory (Memory Persistence)
    ↓
 Final Response
 
+```

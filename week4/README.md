@@ -71,6 +71,7 @@ This notebook demonstrates how to build a Retrieval-Augmented Generation (RAG) a
 
 # Agent Architecture
 The workflow follows a hybrid retrieval and reasoning pipeline:
+```
 
 User Query
    ↓
@@ -81,6 +82,9 @@ Decision Point (Choose Tool)
    └── Tavily Web Search Tool
    ↓
 Context & Search Results
+
+```
+
    ↓
 RunnableWithMessageHistory (Memory Persistence)
    ↓

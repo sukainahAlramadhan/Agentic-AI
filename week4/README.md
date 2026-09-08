@@ -49,3 +49,39 @@ Math Calculation
 Tool Chaining
    ↓
 Final Answer
+
+
+
+# Week 4 – LangChain_wikipedia.ipynb
+
+# Overview
+This notebook demonstrates how to build a Retrieval-Augmented Generation (RAG) agent using LangChain. The agent retrieves structured and unstructured data, performs hybrid searches across vector and lexical stores, leverages live web search when necessary, and maintains conversational context across user interactions.
+
+# Topics Covered
+* Document ingestion and chunking
+* Hybrid search (vector embeddings + keyword search)
+* Cache-backed embeddings for performance optimization
+* Agentic tool integration (retriever tools & external web search)
+* ReAct agent workflow and execution
+* Session-based conversational memory
+
+# Tools Used
+* **Restaurant / Avengers Document Retriever** – searches and extracts information from local vector stores (**FAISS**) and keyword indices (**BM25**).
+* **Tavily Web Search** – retrieves real-time, external web information when local knowledge is insufficient.
+
+# Agent Architecture
+The workflow follows a hybrid retrieval and reasoning pipeline:
+
+User Query
+   ↓
+Agent Executor (ReAct Framework)
+   ↓
+Decision Point (Choose Tool)
+   ├── Ensemble Retriever (FAISS + BM25)
+   └── Tavily Web Search Tool
+   ↓
+Context & Search Results
+   ↓
+RunnableWithMessageHistory (Memory Persistence)
+   ↓
+Final Response

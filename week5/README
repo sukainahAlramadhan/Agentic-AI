@@ -1,1 +1,133 @@
+# ==============================================================================
+# Demo: Task Planning Agent (Freelance AI Engineering Pricing - KSA)
+# Purpose: Multi-agent system (Planner -> Researcher -> Calculator -> Summary)
+# ==============================================================================
 
+import os
+from getpass import getpass
+from typing import List, Dict
+
+from langchain_core.tools import tool
+from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_react_agent, AgentExecutor
+from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client
+
+# ------------------------------------------------------------------------------
+# 1. Setup API Keys & Tools
+# ------------------------------------------------------------------------------
+if "OPENAI_API_KEY" not in os.environ:
+    os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
+
+client = Client()
+search_tool = DuckDuckGoSearchRun(name="Web_Search")
+
+@tool
+def calculate_math(expression: str) -> str:
+    """Perform mathematical calculations safely."""
+    try:
+        allowed = {"__builtins__": {}}
+        return str(eval(expression, allowed, {}))
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+react_prompt = client.pull_prompt("hwchase17/react", dangerously_pull_public_prompt=True)
+
+# ------------------------------------------------------------------------------
+# 2. Planning Agent Setup
+# ------------------------------------------------------------------------------
+planner_prompt = ChatPromptTemplate.from_template(
+    """You are a Planning Agent specialized in task decomposition.
+User Request: {input}
+Break this complex request into **exactly 3 structured steps**:
+1. Research Step (what data needs to be collected)
+2. Calculation Step (what needs to be calculated)
+3. Summary Step (what final output is expected)
+Return ONLY a numbered list with these 3 steps. Keep each step short and clear."""
+)
+planner_chain = planner_prompt | llm
+
+# ------------------------------------------------------------------------------
+# 3. Worker Agents Setup (Researcher & Calculator)
+# ------------------------------------------------------------------------------
+researcher_prompt = react_prompt.partial(
+    system_message="""You are a Researcher Agent.
+Your job is to collect the required data using Web_Search.
+Return the information in a clear, simple format."""
+)
+researcher_agent = create_react_agent(llm=llm, tools=[search_tool], prompt=researcher_prompt)
+researcher_executor = AgentExecutor(
+    agent=researcher_agent,
+    tools=[search_tool],
+    verbose=False,
+    max_iterations=10,
+    handle_parsing_errors=True
+)
+
+calculator_prompt = react_prompt.partial(
+    system_message="""You are a Calculator Agent.
+Your job is to take the research data and perform the required calculations using the calculate_math tool.
+Return a short, clean summary of the results."""
+)
+calculator_agent = create_react_agent(llm=llm, tools=[calculate_math], prompt=calculator_prompt)
+calculator_executor = AgentExecutor(
+    agent=calculator_agent,
+    tools=[calculate_math],
+    verbose=False,
+    max_iterations=10,
+    handle_parsing_errors=True
+)
+
+# ------------------------------------------------------------------------------
+# 4. Pipeline Execution
+# ------------------------------------------------------------------------------
+def run_planning_agent_demo():
+    user_query = (
+        "Estimate a project quote for building an end-to-end AI agentic system "
+        "requiring 80 estimated hours. Factor in standard Saudi AI Engineer hourly rates in SAR, "
+        "a 20% safety buffer, and 15% estimated Zakat/tax reserve. Calculate the final "
+        "fixed project price in SAR and effective net hourly profit."
+    )
+    
+    print("=== Task Planning Agent Demo: AI Project Pricing (KSA) ===\n")
+    
+    # Step 1: Planning Agent decomposes the task
+    print("1. Planning Agent - Task Decomposition")
+    plan_result = planner_chain.invoke({"input": user_query})
+    plan_text = plan_result.content if hasattr(plan_result, "content") else str(plan_result)
+    print(plan_text)
+    print("\n" + "-" * 60 + "\n")
+    
+    # Step 2: Researcher Agent executes research step
+    print("2. Researcher Agent - Executing Research Step")
+    research_input = (
+        "Find average hourly benchmark rates in SAR for a freelance AI Engineer "
+        "or Machine Learning specialist in Saudi Arabia."
+    )
+    research_result = researcher_executor.invoke({"input": research_input})
+    research_data = research_result["output"]
+    print("Research Output:")
+    print(research_data)
+    print("\n" + "-" * 60 + "\n")
+    
+    # Step 3: Calculator Agent executes calculation step
+    print("3. Calculator Agent - Executing Calculation Step")
+    calc_input = f"""Using this research data:
+{research_data}
+
+Calculate using SAR:
+1. Total billable hours including a 20% safety buffer on the base 80 hours.
+2. Total gross project price in SAR based on the benchmark hourly rate.
+3. Net profit in SAR after deducting 15% for Zakat/taxes from the total gross price.
+4. Effective net hourly profit in SAR earned per base hour."""
+
+    calc_result = calculator_executor.invoke({"input": calc_input})
+    print("Calculation Output:")
+    print(calc_result["output"])
+    print("\n" + "=" * 70)
+    print("DEMO COMPLETE: AI Engineering project pricing pipeline executed.")
+
+# Run the complete pipeline
+run_planning_agent_demo()
